@@ -1,11 +1,8 @@
 import { useDAWStore } from '../../../store/useDAWStore'
 import { audioEngine } from '../../../audio/AudioEngine'
-import type { MidiTrack, MidiNote } from '../../../types'
+import type { MidiTrack, MidiNote, Section } from '../../../types'
 
-// Pitches from B5 (83) down to C2 (36) — 48 rows
 const PITCHES = Array.from({ length: 48 }, (_, i) => 83 - i)
-const STEPS = Array.from({ length: 16 }, (_, i) => i)
-
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const BLACK_NOTES = new Set([1, 3, 6, 8, 10]) // C#, D#, F#, G#, A#
 
@@ -24,22 +21,30 @@ function isC(pitch: number): boolean {
 
 interface PianoRollProps {
   track: MidiTrack
+  section: Section
 }
 
-export function PianoRoll({ track }: PianoRollProps) {
+export function PianoRoll({ track, section }: PianoRollProps) {
   const { state, dispatch } = useDAWStore()
-  const currentStep = state.transport.currentStep
+  const totalSteps = section.bars * 16
+  const STEPS = Array.from({ length: totalSteps }, (_, i) => i)
 
+  // Show playhead only when playing this section
+  const sectionIdx = state.sections.findIndex(s => s.id === section.id)
+  const showPlayhead = state.transport.isPlaying && state.transport.currentSectionIdx === sectionIdx
+  const displayStep = showPlayhead ? state.transport.currentStep : -1
+
+  const sectionNotes = section.midiNotes[track.id] ?? []
   const noteSet = new Map<string, MidiNote>()
-  for (const note of track.notes) {
-    noteSet.set(`${note.pitch}-${note.step}`, note)
+  for (const note of sectionNotes) {
+    if (note.step < totalSteps) noteSet.set(`${note.pitch}-${note.step}`, note)
   }
 
   const handleCellClick = (pitch: number, step: number) => {
     const key = `${pitch}-${step}`
     const existing = noteSet.get(key)
     if (existing) {
-      dispatch({ type: 'REMOVE_MIDI_NOTE', id: track.id, noteId: existing.id })
+      dispatch({ type: 'REMOVE_MIDI_NOTE', id: track.id, sectionId: section.id, noteId: existing.id })
     } else {
       const note: MidiNote = {
         id: `note-${Date.now()}-${Math.random()}`,
@@ -48,7 +53,7 @@ export function PianoRoll({ track }: PianoRollProps) {
         duration: '16n',
         velocity: 0.8,
       }
-      dispatch({ type: 'ADD_MIDI_NOTE', id: track.id, note })
+      dispatch({ type: 'ADD_MIDI_NOTE', id: track.id, sectionId: section.id, note })
     }
   }
 
@@ -65,7 +70,12 @@ export function PianoRoll({ track }: PianoRollProps) {
           {STEPS.map(s => (
             <div
               key={s}
-              className={`pr-step-label ${state.transport.isPlaying && currentStep === s ? 'pr-step-label--current' : ''} ${s % 4 === 0 ? 'pr-step-label--beat' : ''}`}
+              className={[
+                'pr-step-label',
+                showPlayhead && displayStep === s ? 'pr-step-label--current' : '',
+                s % 4 === 0 ? 'pr-step-label--beat' : '',
+                s % 16 === 0 && s > 0 ? 'pr-step-label--bar-start' : '',
+              ].join(' ')}
             >
               {s + 1}
             </div>
@@ -95,7 +105,7 @@ export function PianoRoll({ track }: PianoRollProps) {
               <div className="pr-cells">
                 {STEPS.map(step => {
                   const active = noteSet.has(`${pitch}-${step}`)
-                  const isCurrent = state.transport.isPlaying && currentStep === step
+                  const isCurrent = showPlayhead && displayStep === step
                   return (
                     <div
                       key={step}
@@ -104,6 +114,7 @@ export function PianoRoll({ track }: PianoRollProps) {
                         active ? 'pr-cell--active' : '',
                         isCurrent ? 'pr-cell--current' : '',
                         step % 4 === 0 ? 'pr-cell--beat' : '',
+                        step % 16 === 0 && step > 0 ? 'pr-cell--bar-start' : '',
                         black ? 'pr-cell--black-row' : '',
                       ].join(' ')}
                       onClick={() => handleCellClick(pitch, step)}

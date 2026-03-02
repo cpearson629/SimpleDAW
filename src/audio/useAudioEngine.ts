@@ -12,8 +12,8 @@ export function useAudioEngine() {
 
   // Register step-change callback once
   useEffect(() => {
-    audioEngine.setOnStepChange((step) => {
-      dispatch({ type: 'SET_CURRENT_STEP', step })
+    audioEngine.setOnStepChange((sectionIdx, step) => {
+      dispatch({ type: 'SET_CURRENT_STEP', step, sectionIdx })
     })
   }, [dispatch])
 

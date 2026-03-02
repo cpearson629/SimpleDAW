@@ -1,22 +1,21 @@
 import * as Tone from 'tone'
-import type { DAWState } from '../types'
+import type { DAWState, Section } from '../types'
 import { DrumEngine } from './DrumEngine'
 import { MidiEngine } from './MidiEngine'
 import { PlayerEngine } from './PlayerEngine'
 
-const STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
 class AudioEngine {
   private stateRef: DAWState | null = null
-  private sequence: Tone.Sequence<number> | null = null
+  private repeatEventId: number | null = null
   private metronomeSynth: Tone.Synth | null = null
   private drumEngines = new Map<string, DrumEngine>()
   private midiEngines = new Map<string, MidiEngine>()
   private playerEngines = new Map<string, PlayerEngine>()
-  private onStepChange: ((step: number) => void) | null = null
+  private onStepChange: ((sectionIdx: number, step: number) => void) | null = null
   private initialized = false
+  private arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
 
-  setOnStepChange(cb: (step: number) => void) {
+  setOnStepChange(cb: (sectionIdx: number, step: number) => void) {
     this.onStepChange = cb
   }
 
@@ -29,20 +28,6 @@ class AudioEngine {
       envelope: { attack: 0.001, decay: 0.04, sustain: 0, release: 0.05 },
       volume: -6,
     }).toDestination()
-
-    this.sequence = new Tone.Sequence<number>(
-      (time, step) => {
-        const state = this.stateRef
-        if (!state) return
-        this.fireStep(time, step, state)
-        Tone.getDraw().schedule(() => {
-          this.onStepChange?.(step)
-        }, time)
-      },
-      STEPS,
-      '16n'
-    )
-    this.sequence.start(0)
   }
 
   /** Called on every React state change to keep the engine in sync. */
@@ -71,28 +56,80 @@ class AudioEngine {
       }
     }
 
-    Tone.getTransport().start()
+    const transport = Tone.getTransport()
+    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+
+    this.repeatEventId = transport.scheduleRepeat((time) => {
+      const st = this.stateRef
+      if (!st) return
+      const sections = st.sections
+      if (!sections.length) return
+
+      // Bounds check
+      if (this.arrangementPos.sectionIdx >= sections.length) {
+        this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+      }
+
+      const { sectionIdx, loopIdx, step } = this.arrangementPos
+      const section = sections[sectionIdx]
+      const totalSteps = section.bars * 16
+
+      // Fire audio for current step
+      this.fireSectionStep(time, step, section, st)
+
+      // Notify UI via Draw
+      Tone.getDraw().schedule(() => {
+        this.onStepChange?.(sectionIdx, step)
+      }, time)
+
+      // Advance position
+      const nextStep = step + 1
+      if (nextStep >= totalSteps) {
+        const nextLoop = loopIdx + 1
+        if (nextLoop >= section.loopCount) {
+          this.arrangementPos = {
+            sectionIdx: (sectionIdx + 1) % sections.length,
+            loopIdx: 0,
+            step: 0,
+          }
+        } else {
+          this.arrangementPos = { sectionIdx, loopIdx: nextLoop, step: 0 }
+        }
+      } else {
+        this.arrangementPos = { sectionIdx, loopIdx, step: nextStep }
+      }
+    }, '16n')
+
+    transport.start()
   }
 
   stop() {
-    Tone.getTransport().stop()
-    Tone.getTransport().position = 0 as unknown as Tone.Unit.Time
+    const transport = Tone.getTransport()
+    if (this.repeatEventId !== null) {
+      transport.clear(this.repeatEventId)
+      this.repeatEventId = null
+    }
+    transport.stop()
+    transport.position = 0 as unknown as Tone.Unit.Time
+    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
 
     for (const engine of this.playerEngines.values()) {
       engine.stop()
     }
   }
 
-  private fireStep(time: number, step: number, state: DAWState) {
+  private fireSectionStep(time: number, step: number, section: Section, state: DAWState) {
     for (const track of state.tracks) {
       if (track.muted) continue
 
       if (track.type === 'drum') {
         const engine = this.drumEngines.get(track.id)
-        if (engine) engine.fireStep(time, step, track.voices)
+        const pattern = section.drumPatterns[track.id]
+        if (engine && pattern) engine.fireStep(time, step, pattern)
       } else if (track.type === 'midi') {
         const engine = this.midiEngines.get(track.id)
-        if (engine) engine.fireStep(time, step, track.notes)
+        const notes = section.midiNotes[track.id] ?? []
+        if (engine) engine.fireStep(time, step, notes)
       }
       // Recorded tracks are handled by the synced Tone.Player
     }

@@ -335,6 +335,146 @@ input:focus, select:focus {
   color: #fff;
 }
 
+/* ── Right column ──────────────────────────────────────────────────────────── */
+.daw-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Section Panel ─────────────────────────────────────────────────────────── */
+.section-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+
+.section-panel-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.section-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.section-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.1s, background 0.1s;
+  font-size: 11px;
+  user-select: none;
+}
+
+.section-chip:hover {
+  border-color: var(--accent-dim);
+}
+
+.section-chip--editing {
+  border-color: var(--accent);
+  background: var(--bg2);
+}
+
+.section-chip--playing {
+  animation: section-pulse 1s ease-in-out infinite;
+}
+
+@keyframes section-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74, 158, 255, 0); }
+  50% { box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.3); }
+}
+
+.section-chip-name {
+  font-weight: bold;
+  color: var(--text);
+  min-width: 30px;
+}
+
+.section-name-input {
+  width: 80px;
+  height: 18px;
+  padding: 0 4px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.section-bars-select {
+  padding: 1px 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.section-chip-x {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.section-loop-input {
+  width: 36px;
+  height: 18px;
+  padding: 0 3px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.section-delete-btn {
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-dim);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s, background 0.1s;
+  padding: 0;
+}
+
+.section-delete-btn:hover {
+  color: var(--danger);
+  background: rgba(224, 82, 82, 0.15);
+}
+
+.section-add-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition: border-color 0.1s, color 0.1s;
+  flex-shrink: 0;
+}
+
+.section-add-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ── Editor Panel ──────────────────────────────────────────────────────────── */
 .editor-panel {
   flex: 1;
@@ -378,6 +518,7 @@ input:focus, select:focus {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-x: auto;
 }
 
 .drum-step-numbers {
@@ -418,7 +559,18 @@ input:focus, select:focus {
   color: var(--text);
 }
 
+.step-number--bar-start {
+  margin-left: 6px;
+  border-left: 1px solid var(--border);
+  padding-left: 2px;
+}
+
 /* ── Step Button ───────────────────────────────────────────────────────────── */
+/* Bar boundary: extra left margin to visually separate bars */
+.step-btn--bar-start {
+  margin-left: 6px;
+}
+
 .step-btn {
   width: 28px;
   height: 28px;
@@ -526,6 +678,8 @@ input:focus, select:focus {
 .midi-steps-row {
   display: flex;
   gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 /* ── Piano Roll ────────────────────────────────────────────────────────────── */
@@ -565,6 +719,8 @@ input:focus, select:focus {
 
 .pr-step-label--beat { color: var(--text); font-weight: bold; }
 .pr-step-label--current { color: var(--accent); }
+.pr-step-label--bar-start { border-left: 1px solid var(--accent-dim); }
+.pr-cell--bar-start { border-left: 1px solid var(--accent-dim); }
 
 .piano-roll-body {
   overflow-y: auto;

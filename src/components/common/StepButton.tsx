@@ -4,11 +4,12 @@ interface StepButtonProps {
   active: boolean
   current: boolean  // step playhead
   beat: boolean     // first step of a beat group (every 4)
+  barStart?: boolean // first step of a bar (every 16, after the first)
   onClick: () => void
   color?: string
 }
 
-export function StepButton({ active, current, beat, onClick, color }: StepButtonProps) {
+export function StepButton({ active, current, beat, barStart, onClick, color }: StepButtonProps) {
   return (
     <button
       className={[
@@ -16,6 +17,7 @@ export function StepButton({ active, current, beat, onClick, color }: StepButton
         active ? 'step-btn--active' : '',
         current ? 'step-btn--current' : '',
         beat ? 'step-btn--beat' : '',
+        barStart ? 'step-btn--bar-start' : '',
       ].join(' ')}
       style={active && color ? { '--step-color': color } as React.CSSProperties : undefined}
       onClick={onClick}

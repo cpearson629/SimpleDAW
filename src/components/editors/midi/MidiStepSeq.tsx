@@ -1,28 +1,33 @@
 import { useDAWStore } from '../../../store/useDAWStore'
 import { StepButton } from '../../common/StepButton'
 import { audioEngine } from '../../../audio/AudioEngine'
-import type { MidiTrack } from '../../../types'
+import type { MidiTrack, Section } from '../../../types'
 
-// MIDI pitch helpers
 function midiToName(pitch: number): string {
   const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
   const octave = Math.floor(pitch / 12) - 1
   return `${names[pitch % 12]}${octave}`
 }
 
-// Build options for the pitch selector: C2 (36) to B5 (83)
 const PITCH_OPTIONS = Array.from({ length: 48 }, (_, i) => 36 + i).reverse()
 
 interface MidiStepSeqProps {
   track: MidiTrack
+  section: Section
 }
 
-export function MidiStepSeq({ track }: MidiStepSeqProps) {
+export function MidiStepSeq({ track, section }: MidiStepSeqProps) {
   const { state, dispatch } = useDAWStore()
-  const currentStep = state.transport.currentStep
+  const totalSteps = section.bars * 16
 
+  // Show playhead only when playing this section
+  const sectionIdx = state.sections.findIndex(s => s.id === section.id)
+  const showPlayhead = state.transport.isPlaying && state.transport.currentSectionIdx === sectionIdx
+  const displayStep = showPlayhead ? state.transport.currentStep : -1
+
+  const sectionNotes = section.midiNotes[track.id] ?? []
   const activeSteps = new Set(
-    track.notes.filter(n => n.pitch === track.stepSeqPitch).map(n => n.step)
+    sectionNotes.filter(n => n.pitch === track.stepSeqPitch && n.step < totalSteps).map(n => n.step)
   )
 
   const handlePitchChange = (pitch: number) => {
@@ -46,14 +51,21 @@ export function MidiStepSeq({ track }: MidiStepSeqProps) {
       </div>
 
       <div className="midi-steps-row">
-        {Array.from({ length: 16 }, (_, i) => (
+        {Array.from({ length: totalSteps }, (_, i) => (
           <StepButton
             key={i}
             active={activeSteps.has(i)}
-            current={state.transport.isPlaying ? currentStep === i : false}
+            current={displayStep === i}
             beat={i % 4 === 0}
+            barStart={i % 16 === 0 && i > 0}
             color="#52a0e0"
-            onClick={() => dispatch({ type: 'TOGGLE_MIDI_STEP', id: track.id, step: i })}
+            onClick={() => dispatch({
+              type: 'TOGGLE_MIDI_STEP',
+              id: track.id,
+              sectionId: section.id,
+              step: i,
+              pitch: track.stepSeqPitch,
+            })}
           />
         ))}
       </div>

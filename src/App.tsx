@@ -3,6 +3,7 @@ import { useAudioEngine } from './audio/useAudioEngine'
 import { useTransport } from './hooks/useTransport'
 import { TransportBar } from './components/transport/TransportBar'
 import { TrackList } from './components/tracks/TrackList'
+import { SectionPanel } from './components/sections/SectionPanel'
 import { EditorPanel } from './components/editors/EditorPanel'
 
 function DAWApp() {
@@ -14,7 +15,10 @@ function DAWApp() {
       <TransportBar />
       <div className="daw-main">
         <TrackList />
-        <EditorPanel />
+        <div className="daw-right">
+          <SectionPanel />
+          <EditorPanel />
+        </div>
       </div>
     </div>
   )

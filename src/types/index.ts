@@ -1,5 +1,9 @@
 export type DrumVoice = 'kick' | 'snare' | 'hihat' | 'openhat' | 'clap' | 'tom'
 
+export type MidiSynthType =
+  'synth' | 'amsynth' | 'fmsynth' | 'pluck' | 'pad' |
+  'bass' | 'lead' | 'bell' | 'keys' | 'organ'
+
 export interface BaseTrack {
   id: string
   name: string
@@ -9,13 +13,12 @@ export interface BaseTrack {
 
 export interface DrumTrack extends BaseTrack {
   type: 'drum'
-  voices: Record<DrumVoice, boolean[]>   // 16 steps each
 }
 
 export interface MidiNote {
   id: string
   pitch: number    // MIDI note number 36–83
-  step: number     // 0–15
+  step: number     // 0–(totalSteps-1)
   duration: string // e.g. '8n', '16n'
   velocity: number // 0–1
 }
@@ -23,9 +26,8 @@ export interface MidiNote {
 export interface MidiTrack extends BaseTrack {
   type: 'midi'
   editorMode: 'pianoroll' | 'stepseq'
-  notes: MidiNote[]
   stepSeqPitch: number   // MIDI note used in stepseq mode
-  synthType: 'synth' | 'amsynth' | 'fmsynth'
+  synthType: MidiSynthType
 }
 
 export interface RecordedTrack extends BaseTrack {
@@ -38,15 +40,27 @@ export interface RecordedTrack extends BaseTrack {
 
 export type Track = DrumTrack | MidiTrack | RecordedTrack
 
+export interface Section {
+  id: string
+  name: string
+  bars: 1 | 2 | 4 | 8         // total steps = bars * 16
+  loopCount: number             // how many times to play before advancing (1–16)
+  drumPatterns: Record<string, Record<DrumVoice, boolean[]>>  // trackId → voice → steps
+  midiNotes: Record<string, MidiNote[]>                       // trackId → notes
+}
+
 export interface TransportState {
   isPlaying: boolean
   bpm: number
   metronomeOn: boolean
   currentStep: number
+  currentSectionIdx: number
 }
 
 export interface DAWState {
   transport: TransportState
   tracks: Track[]
   selectedTrackId: string | null
+  sections: Section[]
+  currentSectionId: string | null
 }

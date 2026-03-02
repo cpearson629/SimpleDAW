@@ -1,13 +1,14 @@
 import { useDAWStore } from '../../../store/useDAWStore'
 import { MidiStepSeq } from './MidiStepSeq'
 import { PianoRoll } from './PianoRoll'
-import type { MidiTrack } from '../../../types'
+import type { MidiTrack, MidiSynthType, Section } from '../../../types'
 
 interface MidiEditorProps {
   track: MidiTrack
+  section: Section
 }
 
-export function MidiEditor({ track }: MidiEditorProps) {
+export function MidiEditor({ track, section }: MidiEditorProps) {
   const { dispatch } = useDAWStore()
 
   return (
@@ -39,21 +40,28 @@ export function MidiEditor({ track }: MidiEditorProps) {
               dispatch({
                 type: 'SET_MIDI_SYNTH_TYPE',
                 id: track.id,
-                synthType: e.target.value as MidiTrack['synthType'],
+                synthType: e.target.value as MidiSynthType,
               })
             }
           >
             <option value="synth">Basic Synth</option>
             <option value="amsynth">AM Synth</option>
             <option value="fmsynth">FM Synth</option>
+            <option value="pluck">Pluck</option>
+            <option value="pad">Pad</option>
+            <option value="bass">Bass</option>
+            <option value="lead">Lead</option>
+            <option value="bell">Bell</option>
+            <option value="keys">Keys</option>
+            <option value="organ">Organ</option>
           </select>
         </div>
       </div>
 
       {track.editorMode === 'stepseq' ? (
-        <MidiStepSeq track={track} />
+        <MidiStepSeq track={track} section={section} />
       ) : (
-        <PianoRoll track={track} />
+        <PianoRoll track={track} section={section} />
       )}
     </div>
   )
