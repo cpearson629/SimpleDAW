@@ -26,9 +26,14 @@ export function MidiStepSeq({ track, section }: MidiStepSeqProps) {
   const displayStep = showPlayhead ? state.transport.currentStep : -1
 
   const sectionNotes = section.midiNotes[track.id] ?? []
-  const activeSteps = new Set(
-    sectionNotes.filter(n => n.pitch === track.stepSeqPitch && n.step < totalSteps).map(n => n.step)
-  )
+  // Show all steps covered by notes at this pitch (multi-step notes fill multiple buttons)
+  const activeSteps = new Set<number>()
+  for (const n of sectionNotes) {
+    if (n.pitch !== track.stepSeqPitch) continue
+    for (let s = n.step; s < n.step + n.durationSteps && s < totalSteps; s++) {
+      activeSteps.add(s)
+    }
+  }
 
   const handlePitchChange = (pitch: number) => {
     dispatch({ type: 'SET_MIDI_STEP_PITCH', id: track.id, pitch })

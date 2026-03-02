@@ -198,7 +198,14 @@ function reducer(state: DAWState, action: Action): DAWState {
         sections: state.sections.map(section => {
           if (section.id !== action.sectionId) return section
           const existing = section.midiNotes[action.id] ?? []
-          const filtered = existing.filter(n => !(n.pitch === action.note.pitch && n.step === action.note.step))
+          const newStart = action.note.step
+          const newEnd = action.note.step + action.note.durationSteps - 1
+          // Remove any same-pitch notes that overlap the new note's range
+          const filtered = existing.filter(n => {
+            if (n.pitch !== action.note.pitch) return true
+            const nEnd = n.step + n.durationSteps - 1
+            return nEnd < newStart || n.step > newEnd
+          })
           return {
             ...section,
             midiNotes: { ...section.midiNotes, [action.id]: [...filtered, action.note] },
@@ -251,7 +258,12 @@ function reducer(state: DAWState, action: Action): DAWState {
         sections: state.sections.map(section => {
           if (section.id !== action.sectionId) return section
           const existing = section.midiNotes[action.id] ?? []
-          const found = existing.find(n => n.pitch === action.pitch && n.step === action.step)
+          // Find any note at this pitch that covers this step (handles multi-step notes)
+          const found = existing.find(n =>
+            n.pitch === action.pitch &&
+            n.step <= action.step &&
+            action.step < n.step + n.durationSteps
+          )
           let newNotes: MidiNote[]
           if (found) {
             newNotes = existing.filter(n => n.id !== found.id)
@@ -260,7 +272,7 @@ function reducer(state: DAWState, action: Action): DAWState {
               id: `note-${Date.now()}-${Math.random()}`,
               pitch: action.pitch,
               step: action.step,
-              duration: '16n',
+              durationSteps: 1,
               velocity: 0.8,
             }
             newNotes = [...existing, note]

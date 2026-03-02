@@ -108,7 +108,9 @@ export class MidiEngine {
     for (const note of notes) {
       if (note.step === step) {
         const freq = Tone.Frequency(note.pitch, 'midi').toFrequency()
-        this.synth.triggerAttackRelease(freq, note.duration, time, note.velocity)
+        // Convert durationSteps (16th-note count) to seconds
+        const durationSec = Tone.getTransport().toSeconds('16n') * note.durationSteps
+        this.synth.triggerAttackRelease(freq, durationSec, time, note.velocity)
       }
     }
   }

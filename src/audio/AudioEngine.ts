@@ -174,6 +174,89 @@ class AudioEngine {
     }
   }
 
+  /** Record one full pass through all sections and return the audio blob. */
+  async exportAudio(state: DAWState): Promise<Blob> {
+    await Tone.start()
+    this.init()
+    this.stateRef = state
+
+    const transport = Tone.getTransport()
+
+    // Connect a recorder to the master output
+    const recorder = new Tone.Recorder()
+    Tone.getDestination().connect(recorder)
+
+    // Reset arrangement position and set up the repeat callback (same as play())
+    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+
+    if (this.repeatEventId !== null) {
+      transport.clear(this.repeatEventId)
+      this.repeatEventId = null
+    }
+
+    this.repeatEventId = transport.scheduleRepeat((time) => {
+      const st = this.stateRef
+      if (!st) return
+      const sections = st.sections
+      if (!sections.length) return
+
+      if (this.arrangementPos.sectionIdx >= sections.length) {
+        this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+      }
+
+      const { sectionIdx, loopIdx, step } = this.arrangementPos
+      const section = sections[sectionIdx]
+      const totalSteps = section.bars * 16
+
+      this.fireSectionStep(time, step, section, st)
+
+      Tone.getDraw().schedule(() => {
+        this.onStepChange?.(sectionIdx, step)
+      }, time)
+
+      const nextStep = step + 1
+      if (nextStep >= totalSteps) {
+        const nextLoop = loopIdx + 1
+        if (nextLoop >= section.loopCount) {
+          this.arrangementPos = {
+            sectionIdx: (sectionIdx + 1) % sections.length,
+            loopIdx: 0,
+            step: 0,
+          }
+        } else {
+          this.arrangementPos = { sectionIdx, loopIdx: nextLoop, step: 0 }
+        }
+      } else {
+        this.arrangementPos = { sectionIdx, loopIdx, step: nextStep }
+      }
+    }, '16n')
+
+    // Calculate total duration for one pass
+    const totalSteps = state.sections.reduce((sum, s) => sum + s.bars * 16 * s.loopCount, 0)
+    const sixteenthSec = (60 / state.transport.bpm) / 4
+    const totalSeconds = totalSteps * sixteenthSec + 1.5 // +1.5s tail for reverb
+
+    recorder.start()
+    transport.start()
+
+    await new Promise<void>(resolve => setTimeout(resolve, totalSeconds * 1000))
+
+    // Stop transport and clear event
+    if (this.repeatEventId !== null) {
+      transport.clear(this.repeatEventId)
+      this.repeatEventId = null
+    }
+    transport.stop()
+    transport.position = 0 as unknown as Tone.Unit.Time
+    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+
+    // Collect recording
+    const blob = await recorder.stop()
+    recorder.dispose()
+
+    return blob
+  }
+
   getMidiEngine(trackId: string): MidiEngine | undefined {
     return this.midiEngines.get(trackId)
   }

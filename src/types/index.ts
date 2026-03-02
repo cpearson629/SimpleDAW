@@ -17,10 +17,10 @@ export interface DrumTrack extends BaseTrack {
 
 export interface MidiNote {
   id: string
-  pitch: number    // MIDI note number 36–83
-  step: number     // 0–(totalSteps-1)
-  duration: string // e.g. '8n', '16n'
-  velocity: number // 0–1
+  pitch: number        // MIDI note number 36–83
+  step: number         // 0–(totalSteps-1)
+  durationSteps: number // length in 16th-note steps (1 = one 16th note)
+  velocity: number     // 0–1
 }
 
 export interface MidiTrack extends BaseTrack {
