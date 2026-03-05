@@ -79,6 +79,7 @@ export type Action =
   | { type: 'SET_RECORDING'; id: string; isRecording: boolean }
   | { type: 'SET_START_OFFSET'; id: string; startOffset: number }
   | { type: 'ADD_SECTION' }
+  | { type: 'COPY_SECTION'; id: string }
   | { type: 'REMOVE_SECTION'; id: string }
   | { type: 'SELECT_SECTION'; id: string }
   | { type: 'SET_SECTION_NAME'; id: string; name: string }
@@ -319,6 +320,25 @@ function reducer(state: DAWState, action: Action): DAWState {
         sections: [...state.sections, newSection],
         currentSectionId: newSection.id,
       }
+    }
+
+    case 'COPY_SECTION': {
+      const src = state.sections.find(s => s.id === action.id)
+      if (!src) return state
+      const drumPatterns: Section['drumPatterns'] = {}
+      for (const [trackId, pattern] of Object.entries(src.drumPatterns)) {
+        const copy = {} as Record<DrumVoice, boolean[]>
+        for (const voice of DRUM_VOICES) copy[voice] = [...pattern[voice]]
+        drumPatterns[trackId] = copy
+      }
+      const midiNotes: Section['midiNotes'] = {}
+      for (const [trackId, notes] of Object.entries(src.midiNotes)) {
+        midiNotes[trackId] = notes.map(n => ({ ...n, id: `note-${Date.now()}-${Math.random()}` }))
+      }
+      const copy: Section = { ...src, id: nextSectionId(), name: `${src.name} Copy`, drumPatterns, midiNotes }
+      const idx = state.sections.findIndex(s => s.id === action.id)
+      const sections = [...state.sections.slice(0, idx + 1), copy, ...state.sections.slice(idx + 1)]
+      return { ...state, sections, currentSectionId: copy.id }
     }
 
     case 'REMOVE_SECTION': {

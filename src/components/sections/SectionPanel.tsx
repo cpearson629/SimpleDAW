@@ -89,6 +89,18 @@ export function SectionPanel() {
                 })}
               />
 
+              {/* Copy button */}
+              <button
+                className="section-copy-btn"
+                title="Duplicate section"
+                onClick={e => {
+                  e.stopPropagation()
+                  dispatch({ type: 'COPY_SECTION', id: section.id })
+                }}
+              >
+                ⧉
+              </button>
+
               {/* Delete button */}
               {state.sections.length > 1 && (
                 <button

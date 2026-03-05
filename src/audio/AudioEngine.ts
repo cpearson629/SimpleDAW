@@ -57,7 +57,8 @@ class AudioEngine {
     }
 
     const transport = Tone.getTransport()
-    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+    const startIdx = Math.max(0, state.sections.findIndex(s => s.id === state.currentSectionId))
+    this.arrangementPos = { sectionIdx: startIdx, loopIdx: 0, step: 0 }
 
     this.repeatEventId = transport.scheduleRepeat((time) => {
       const st = this.stateRef

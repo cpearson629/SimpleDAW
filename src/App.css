@@ -446,6 +446,25 @@ input:focus, select:focus {
   text-align: center;
 }
 
+.section-copy-btn {
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-dim);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s, background 0.1s;
+  padding: 0;
+}
+
+.section-copy-btn:hover {
+  color: var(--accent);
+  background: rgba(100, 160, 255, 0.15);
+}
+
 .section-delete-btn {
   width: 16px;
   height: 16px;
