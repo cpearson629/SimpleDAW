@@ -1,8 +1,12 @@
 import * as Tone from 'tone'
 import type { DrumVoice } from '../types'
+import { masterBus } from './masterBus'
 
 export class DrumEngine {
   private vol: Tone.Volume
+  private reverb: Tone.Reverb
+  private delay: Tone.FeedbackDelay
+  private pan: Tone.Panner
   private kick: Tone.MembraneSynth
   private snare: Tone.NoiseSynth
   private hihat: Tone.MetalSynth
@@ -11,7 +15,19 @@ export class DrumEngine {
   private tom: Tone.MembraneSynth
 
   constructor() {
-    this.vol = new Tone.Volume(0).toDestination()
+    this.pan = new Tone.Panner(0)
+    this.pan.connect(masterBus)
+
+    this.delay = new Tone.FeedbackDelay('8n', 0.3)
+    this.delay.wet.value = 0
+    this.delay.connect(this.pan)
+
+    this.reverb = new Tone.Reverb(1.5)
+    this.reverb.wet.value = 0
+    this.reverb.connect(this.delay)
+
+    this.vol = new Tone.Volume(0)
+    this.vol.connect(this.reverb)
 
     this.kick = new Tone.MembraneSynth({
       pitchDecay: 0.05,
@@ -54,8 +70,11 @@ export class DrumEngine {
     }).connect(this.vol)
   }
 
-  setVolume(db: number) {
-    this.vol.volume.value = db
+  setVolume(db: number) { this.vol.volume.value = db }
+  setPan(value: number) { this.pan.pan.value = value }
+  setEffects(reverbWet: number, delayWet: number) {
+    this.reverb.wet.value = reverbWet
+    this.delay.wet.value = delayWet
   }
 
   fireStep(time: number, step: number, voices: Record<DrumVoice, boolean[]>) {
@@ -75,5 +94,8 @@ export class DrumEngine {
     this.clap.dispose()
     this.tom.dispose()
     this.vol.dispose()
+    this.reverb.dispose()
+    this.delay.dispose()
+    this.pan.dispose()
   }
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useDAWStore } from '../../store/useDAWStore'
 import type { Track } from '../../types'
+import type { TrackEffects } from '../../types'
 
 const TYPE_LABELS: Record<Track['type'], string> = {
   drum: 'DRUM',
@@ -23,6 +24,7 @@ export function TrackRow({ track, isSelected }: TrackRowProps) {
   const { dispatch } = useDAWStore()
   const [editing, setEditing] = useState(false)
   const [draftName, setDraftName] = useState(track.name)
+  const [showFx, setShowFx] = useState(false)
 
   const commitName = () => {
     setEditing(false)
@@ -75,12 +77,41 @@ export function TrackRow({ track, isSelected }: TrackRowProps) {
           onClick={e => e.stopPropagation()}
         />
 
+        <input
+          type="range"
+          className="track-pan"
+          min={-1}
+          max={1}
+          step={0.01}
+          value={track.pan}
+          title={`Pan: ${track.pan === 0 ? 'C' : track.pan > 0 ? `R${Math.round(track.pan * 100)}` : `L${Math.round(-track.pan * 100)}`}`}
+          onChange={e => dispatch({ type: 'SET_TRACK_PAN', id: track.id, pan: Number(e.target.value) })}
+          onClick={e => e.stopPropagation()}
+          onDoubleClick={e => { e.stopPropagation(); dispatch({ type: 'SET_TRACK_PAN', id: track.id, pan: 0 }) }}
+        />
+
+        <button
+          className={`solo-btn ${track.soloed ? 'solo-btn--active' : ''}`}
+          title={track.soloed ? 'Unsolo' : 'Solo'}
+          onClick={e => { e.stopPropagation(); dispatch({ type: 'SOLO_TRACK', id: track.id }) }}
+        >
+          S
+        </button>
+
         <button
           className={`mute-btn ${track.muted ? 'mute-btn--active' : ''}`}
           title={track.muted ? 'Unmute' : 'Mute'}
           onClick={e => { e.stopPropagation(); dispatch({ type: 'SET_TRACK_MUTED', id: track.id, muted: !track.muted }) }}
         >
-          {track.muted ? 'M' : 'M'}
+          {track.muted ? 'M!' : 'M'}
+        </button>
+
+        <button
+          className={`fx-btn ${showFx ? 'fx-btn--active' : ''}`}
+          title="Toggle FX"
+          onClick={e => { e.stopPropagation(); setShowFx(v => !v) }}
+        >
+          FX
         </button>
 
         <button
@@ -91,6 +122,43 @@ export function TrackRow({ track, isSelected }: TrackRowProps) {
           ✕
         </button>
       </div>
+
+      {showFx && (
+        <div className="track-fx-panel" onClick={e => e.stopPropagation()}>
+          <label className="fx-label">
+            Reverb
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={track.effects.reverbWet}
+              onChange={e => dispatch({
+                type: 'SET_TRACK_EFFECTS',
+                id: track.id,
+                effects: { ...track.effects, reverbWet: Number(e.target.value) } as TrackEffects,
+              })}
+            />
+            {Math.round(track.effects.reverbWet * 100)}%
+          </label>
+          <label className="fx-label">
+            Delay
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={track.effects.delayWet}
+              onChange={e => dispatch({
+                type: 'SET_TRACK_EFFECTS',
+                id: track.id,
+                effects: { ...track.effects, delayWet: Number(e.target.value) } as TrackEffects,
+              })}
+            />
+            {Math.round(track.effects.delayWet * 100)}%
+          </label>
+        </div>
+      )}
     </div>
   )
 }

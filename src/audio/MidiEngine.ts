@@ -1,31 +1,52 @@
 import * as Tone from 'tone'
 import type { MidiNote, MidiSynthType } from '../types'
+import { masterBus } from './masterBus'
 
-type EffectNode = Tone.JCReverb | Tone.Chorus
+type PresetEffectNode = Tone.JCReverb | Tone.Chorus
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyPolySynth = Tone.PolySynth<any>
 
 export class MidiEngine {
+  private pan: Tone.Panner
+  private userDelay: Tone.FeedbackDelay
+  private userReverb: Tone.Reverb
   private vol: Tone.Volume
   private synth: AnyPolySynth
-  private effects: EffectNode[] = []
+  private presetEffects: PresetEffectNode[] = []
   private currentSynthType: MidiSynthType = 'synth'
 
   constructor() {
-    this.vol = new Tone.Volume(0).toDestination()
+    // Permanent chain (never disposed): vol → userReverb → userDelay → pan → masterBus
+    this.pan = new Tone.Panner(0)
+    this.pan.connect(masterBus)
+
+    this.userDelay = new Tone.FeedbackDelay('8n', 0.3)
+    this.userDelay.wet.value = 0
+    this.userDelay.connect(this.pan)
+
+    this.userReverb = new Tone.Reverb(1.5)
+    this.userReverb.wet.value = 0
+    this.userReverb.connect(this.userDelay)
+
+    this.vol = new Tone.Volume(0)
+    this.vol.connect(this.userReverb)
+
     this.synth = new Tone.PolySynth(Tone.Synth).connect(this.vol)
   }
 
-  setVolume(db: number) {
-    this.vol.volume.value = db
+  setVolume(db: number) { this.vol.volume.value = db }
+  setPan(value: number) { this.pan.pan.value = value }
+  setEffects(reverbWet: number, delayWet: number) {
+    this.userReverb.wet.value = reverbWet
+    this.userDelay.wet.value = delayWet
   }
 
   setSynthType(type: MidiSynthType) {
     if (type === this.currentSynthType) return
     this.synth.dispose()
-    for (const effect of this.effects) effect.dispose()
-    this.effects = []
+    for (const effect of this.presetEffects) effect.dispose()
+    this.presetEffects = []
     this.currentSynthType = type
 
     switch (type) {
@@ -39,7 +60,7 @@ export class MidiEngine {
 
       case 'pluck': {
         const reverb = new Tone.JCReverb(0.3).connect(this.vol)
-        this.effects = [reverb]
+        this.presetEffects = [reverb]
         this.synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle' },
           envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 },
@@ -50,7 +71,7 @@ export class MidiEngine {
       case 'pad': {
         const chorus = new Tone.Chorus(4, 2.5, 0.5).start().connect(this.vol)
         const reverb = new Tone.JCReverb(0.5).connect(chorus)
-        this.effects = [reverb, chorus]
+        this.presetEffects = [reverb, chorus]
         this.synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sine' },
           envelope: { attack: 0.8, decay: 0.2, sustain: 0.8, release: 1.5 },
@@ -74,7 +95,7 @@ export class MidiEngine {
 
       case 'bell': {
         const reverb = new Tone.JCReverb(0.7).connect(this.vol)
-        this.effects = [reverb]
+        this.presetEffects = [reverb]
         this.synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 1.5, sustain: 0.01, release: 1.0 },
@@ -98,7 +119,6 @@ export class MidiEngine {
     }
   }
 
-  /** Preview a single note (used when clicking piano keys) */
   previewNote(pitch: number) {
     const freq = Tone.Frequency(pitch, 'midi').toFrequency()
     this.synth.triggerAttackRelease(freq, '8n')
@@ -108,7 +128,6 @@ export class MidiEngine {
     for (const note of notes) {
       if (note.step === step) {
         const freq = Tone.Frequency(note.pitch, 'midi').toFrequency()
-        // Convert durationSteps (16th-note count) to seconds
         const durationSec = Tone.getTransport().toSeconds('16n') * note.durationSteps
         this.synth.triggerAttackRelease(freq, durationSec, time, note.velocity)
       }
@@ -117,7 +136,10 @@ export class MidiEngine {
 
   dispose() {
     this.synth.dispose()
-    for (const effect of this.effects) effect.dispose()
+    for (const effect of this.presetEffects) effect.dispose()
     this.vol.dispose()
+    this.userReverb.dispose()
+    this.userDelay.dispose()
+    this.pan.dispose()
   }
 }

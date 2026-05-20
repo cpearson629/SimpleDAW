@@ -2,7 +2,7 @@ import { createContext, useContext, useReducer } from 'react'
 import type { Dispatch } from 'react'
 import type {
   DAWState, Track, DrumVoice, DrumTrack, MidiTrack, RecordedTrack,
-  MidiNote, Section, MidiSynthType,
+  MidiNote, Section, MidiSynthType, TrackEffects,
 } from '../types'
 
 // ── ID generators ────────────────────────────────────────────────────────────
@@ -37,20 +37,22 @@ function makeSection(
 
 // ── Track factories ───────────────────────────────────────────────────────────
 
+const defaultEffects: TrackEffects = { reverbWet: 0, delayWet: 0 }
+
 function makeDrumTrack(name = 'Drum'): DrumTrack {
-  return { id: nextTrackId(), name, type: 'drum', volume: 0.8, muted: false }
+  return { id: nextTrackId(), name, type: 'drum', volume: 0.8, muted: false, soloed: false, pan: 0, effects: { ...defaultEffects } }
 }
 
 function makeMidiTrack(name = 'MIDI'): MidiTrack {
   return {
-    id: nextTrackId(), name, type: 'midi', volume: 0.8, muted: false,
+    id: nextTrackId(), name, type: 'midi', volume: 0.8, muted: false, soloed: false, pan: 0, effects: { ...defaultEffects },
     editorMode: 'stepseq', stepSeqPitch: 60, synthType: 'synth',
   }
 }
 
 function makeRecordedTrack(name = 'Audio'): RecordedTrack {
   return {
-    id: nextTrackId(), name, type: 'recorded', volume: 0.8, muted: false,
+    id: nextTrackId(), name, type: 'recorded', volume: 0.8, muted: false, soloed: false, pan: 0, effects: { ...defaultEffects },
     audioUrl: null, audioBuffer: null, isRecording: false, startOffset: 0,
   }
 }
@@ -85,6 +87,10 @@ export type Action =
   | { type: 'SET_SECTION_NAME'; id: string; name: string }
   | { type: 'SET_SECTION_BARS'; id: string; bars: 1 | 2 | 4 | 8 }
   | { type: 'SET_SECTION_LOOP_COUNT'; id: string; loopCount: number }
+  | { type: 'SOLO_TRACK'; id: string }
+  | { type: 'SET_TRACK_PAN'; id: string; pan: number }
+  | { type: 'SET_TRACK_EFFECTS'; id: string; effects: TrackEffects }
+  | { type: 'LOAD_STATE'; partialState: Partial<DAWState> }
 
 // ── Initial state ─────────────────────────────────────────────────────────────
 
@@ -392,6 +398,35 @@ function reducer(state: DAWState, action: Action): DAWState {
           s.id === action.id ? { ...s, loopCount: Math.max(1, Math.min(16, action.loopCount)) } : s
         ),
       }
+
+    case 'SOLO_TRACK':
+      return {
+        ...state,
+        tracks: state.tracks.map(t =>
+          t.id === action.id
+            ? { ...t, soloed: !t.soloed }
+            : { ...t, soloed: false }
+        ),
+      }
+
+    case 'SET_TRACK_PAN':
+      return {
+        ...state,
+        tracks: state.tracks.map(t =>
+          t.id === action.id ? { ...t, pan: Math.max(-1, Math.min(1, action.pan)) } : t
+        ),
+      }
+
+    case 'SET_TRACK_EFFECTS':
+      return {
+        ...state,
+        tracks: state.tracks.map(t =>
+          t.id === action.id ? { ...t, effects: action.effects } : t
+        ),
+      }
+
+    case 'LOAD_STATE':
+      return { ...initialState, ...action.partialState }
 
     default:
       return state

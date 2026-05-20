@@ -4,11 +4,19 @@ export type MidiSynthType =
   'synth' | 'amsynth' | 'fmsynth' | 'pluck' | 'pad' |
   'bass' | 'lead' | 'bell' | 'keys' | 'organ'
 
+export interface TrackEffects {
+  reverbWet: number   // 0–1
+  delayWet: number    // 0–1
+}
+
 export interface BaseTrack {
   id: string
   name: string
   volume: number   // 0–1 linear
   muted: boolean
+  soloed: boolean
+  pan: number      // -1 (full left) to +1 (full right), 0 = center
+  effects: TrackEffects
 }
 
 export interface DrumTrack extends BaseTrack {

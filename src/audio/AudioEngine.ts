@@ -3,6 +3,7 @@ import type { DAWState, Section } from '../types'
 import { DrumEngine } from './DrumEngine'
 import { MidiEngine } from './MidiEngine'
 import { PlayerEngine } from './PlayerEngine'
+import './masterBus'
 
 class AudioEngine {
   private stateRef: DAWState | null = null
@@ -60,46 +61,7 @@ class AudioEngine {
     const startIdx = Math.max(0, state.sections.findIndex(s => s.id === state.currentSectionId))
     this.arrangementPos = { sectionIdx: startIdx, loopIdx: 0, step: 0 }
 
-    this.repeatEventId = transport.scheduleRepeat((time) => {
-      const st = this.stateRef
-      if (!st) return
-      const sections = st.sections
-      if (!sections.length) return
-
-      // Bounds check
-      if (this.arrangementPos.sectionIdx >= sections.length) {
-        this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
-      }
-
-      const { sectionIdx, loopIdx, step } = this.arrangementPos
-      const section = sections[sectionIdx]
-      const totalSteps = section.bars * 16
-
-      // Fire audio for current step
-      this.fireSectionStep(time, step, section, st)
-
-      // Notify UI via Draw
-      Tone.getDraw().schedule(() => {
-        this.onStepChange?.(sectionIdx, step)
-      }, time)
-
-      // Advance position
-      const nextStep = step + 1
-      if (nextStep >= totalSteps) {
-        const nextLoop = loopIdx + 1
-        if (nextLoop >= section.loopCount) {
-          this.arrangementPos = {
-            sectionIdx: (sectionIdx + 1) % sections.length,
-            loopIdx: 0,
-            step: 0,
-          }
-        } else {
-          this.arrangementPos = { sectionIdx, loopIdx: nextLoop, step: 0 }
-        }
-      } else {
-        this.arrangementPos = { sectionIdx, loopIdx, step: nextStep }
-      }
-    }, '16n')
+    this.repeatEventId = transport.scheduleRepeat(this.makeStepCallback(), '16n')
 
     transport.start()
   }
@@ -142,22 +104,29 @@ class AudioEngine {
 
   private syncTrackEngines(state: DAWState) {
     const ids = new Set(state.tracks.map(t => t.id))
+    const anySoloed = state.tracks.some(t => t.soloed)
 
     for (const track of state.tracks) {
-      const volDb = track.muted ? -Infinity : linearToDb(track.volume)
+      const effectiveMuted = track.muted || (anySoloed && !track.soloed)
+      const volDb = effectiveMuted ? -Infinity : linearToDb(track.volume)
 
       if (track.type === 'drum') {
         const engine = this.getOrCreateDrumEngine(track.id)
         engine.setVolume(volDb)
+        engine.setPan(track.pan)
+        engine.setEffects(track.effects.reverbWet, track.effects.delayWet)
       } else if (track.type === 'midi') {
         const engine = this.getOrCreateMidiEngine(track.id)
         engine.setVolume(volDb)
         engine.setSynthType(track.synthType)
+        engine.setPan(track.pan)
+        engine.setEffects(track.effects.reverbWet, track.effects.delayWet)
       } else if (track.type === 'recorded') {
         const engine = this.getOrCreatePlayerEngine(track.id)
         engine.setVolume(volDb)
+        engine.setPan(track.pan)
+        engine.setEffects(track.effects.reverbWet, track.effects.delayWet)
         if (track.audioUrl) {
-          // Fire-and-forget async load
           engine.ensureLoaded(track.audioUrl)
         }
       }
@@ -195,7 +164,36 @@ class AudioEngine {
       this.repeatEventId = null
     }
 
-    this.repeatEventId = transport.scheduleRepeat((time) => {
+    this.repeatEventId = transport.scheduleRepeat(this.makeStepCallback(), '16n')
+
+    // Calculate total duration for one pass
+    const totalSteps = state.sections.reduce((sum, s) => sum + s.bars * 16 * s.loopCount, 0)
+    const sixteenthSec = (60 / state.transport.bpm) / 4
+    const totalSeconds = totalSteps * sixteenthSec + 1.5 // +1.5s tail for reverb
+
+    recorder.start()
+    transport.start()
+
+    await new Promise<void>(resolve => setTimeout(resolve, totalSeconds * 1000))
+
+    // Stop transport and clear event
+    if (this.repeatEventId !== null) {
+      transport.clear(this.repeatEventId)
+      this.repeatEventId = null
+    }
+    transport.stop()
+    transport.position = 0 as unknown as Tone.Unit.Time
+    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
+
+    // Collect recording
+    const blob = await recorder.stop()
+    recorder.dispose()
+
+    return blob
+  }
+
+  private makeStepCallback() {
+    return (time: number) => {
       const st = this.stateRef
       if (!st) return
       const sections = st.sections
@@ -230,32 +228,7 @@ class AudioEngine {
       } else {
         this.arrangementPos = { sectionIdx, loopIdx, step: nextStep }
       }
-    }, '16n')
-
-    // Calculate total duration for one pass
-    const totalSteps = state.sections.reduce((sum, s) => sum + s.bars * 16 * s.loopCount, 0)
-    const sixteenthSec = (60 / state.transport.bpm) / 4
-    const totalSeconds = totalSteps * sixteenthSec + 1.5 // +1.5s tail for reverb
-
-    recorder.start()
-    transport.start()
-
-    await new Promise<void>(resolve => setTimeout(resolve, totalSeconds * 1000))
-
-    // Stop transport and clear event
-    if (this.repeatEventId !== null) {
-      transport.clear(this.repeatEventId)
-      this.repeatEventId = null
     }
-    transport.stop()
-    transport.position = 0 as unknown as Tone.Unit.Time
-    this.arrangementPos = { sectionIdx: 0, loopIdx: 0, step: 0 }
-
-    // Collect recording
-    const blob = await recorder.stop()
-    recorder.dispose()
-
-    return blob
   }
 
   getMidiEngine(trackId: string): MidiEngine | undefined {

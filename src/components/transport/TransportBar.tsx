@@ -1,12 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDAWStore } from '../../store/useDAWStore'
 import { audioEngine } from '../../audio/AudioEngine'
+import { saveToLocalStorage, loadFromLocalStorage } from '../../store/persistence'
 
 export function TransportBar() {
   const { state, dispatch } = useDAWStore()
   const { isPlaying, bpm, metronomeOn } = state.transport
   const [exporting, setExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState(0)
+  const [localBpm, setLocalBpm] = useState(bpm)
+
+  useEffect(() => { setLocalBpm(bpm) }, [bpm])
+
+  const commitBpm = () => dispatch({ type: 'SET_BPM', bpm: localBpm })
 
   const handleExport = async () => {
     if (exporting || isPlaying) return
@@ -70,10 +76,12 @@ export function TransportBar() {
           <input
             type="number"
             className="bpm-input"
-            value={bpm}
+            value={localBpm}
             min={40}
             max={240}
-            onChange={e => dispatch({ type: 'SET_BPM', bpm: Number(e.target.value) })}
+            onChange={e => setLocalBpm(Number(e.target.value))}
+            onBlur={commitBpm}
+            onKeyDown={e => { if (e.key === 'Enter') commitBpm() }}
           />
         </div>
 
@@ -88,6 +96,25 @@ export function TransportBar() {
       </div>
 
       <div className="transport-right">
+        <button
+          className="transport-btn"
+          onClick={() => saveToLocalStorage(state)}
+          disabled={exporting}
+          title="Save project"
+        >
+          Save
+        </button>
+        <button
+          className="transport-btn"
+          onClick={() => {
+            const loaded = loadFromLocalStorage()
+            if (loaded) dispatch({ type: 'LOAD_STATE', partialState: loaded })
+          }}
+          disabled={exporting}
+          title="Load project"
+        >
+          Load
+        </button>
         <button
           className={`export-btn ${exporting ? 'export-btn--active' : ''}`}
           onClick={handleExport}
