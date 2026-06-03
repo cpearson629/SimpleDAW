@@ -83,6 +83,7 @@ export type Action =
   | { type: 'ADD_SECTION' }
   | { type: 'COPY_SECTION'; id: string }
   | { type: 'REMOVE_SECTION'; id: string }
+  | { type: 'REORDER_SECTIONS'; fromIdx: number; toIdx: number }
   | { type: 'SELECT_SECTION'; id: string }
   | { type: 'SET_SECTION_NAME'; id: string; name: string }
   | { type: 'SET_SECTION_BARS'; id: string; bars: 1 | 2 | 4 | 8 }
@@ -357,6 +358,13 @@ function reducer(state: DAWState, action: Action): DAWState {
         currentSectionId = sections[newIdx]?.id ?? null
       }
       return { ...state, sections, currentSectionId }
+    }
+
+    case 'REORDER_SECTIONS': {
+      const sections = [...state.sections]
+      const [moved] = sections.splice(action.fromIdx, 1)
+      sections.splice(action.toIdx, 0, moved)
+      return { ...state, sections }
     }
 
     case 'SELECT_SECTION':

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useDAWStore } from '../../store/useDAWStore'
 import type { Section } from '../../types'
 
@@ -6,6 +6,8 @@ export function SectionPanel() {
   const { state, dispatch } = useDAWStore()
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [nameValue, setNameValue] = useState('')
+  const [dragFromIdx, setDragFromIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
 
   const playingSectionIdx = state.transport.currentSectionIdx
 
@@ -19,6 +21,18 @@ export function SectionPanel() {
     setEditingNameId(null)
   }
 
+  useEffect(() => {
+    if (dragFromIdx === null) return
+    const onUp = () => {
+      if (dragOverIdx !== null && dragOverIdx !== dragFromIdx)
+        dispatch({ type: 'REORDER_SECTIONS', fromIdx: dragFromIdx, toIdx: dragOverIdx })
+      setDragFromIdx(null)
+      setDragOverIdx(null)
+    }
+    window.addEventListener('mouseup', onUp)
+    return () => window.removeEventListener('mouseup', onUp)
+  }, [dragFromIdx, dragOverIdx, dispatch])
+
   return (
     <div className="section-panel">
       <span className="section-panel-label">SECTIONS</span>
@@ -26,6 +40,8 @@ export function SectionPanel() {
         {state.sections.map((section, idx) => {
           const isEditing = state.currentSectionId === section.id
           const isPlaying = state.transport.isPlaying && playingSectionIdx === idx
+          const isDragging = dragFromIdx === idx
+          const isDragOver = dragOverIdx === idx && dragOverIdx !== dragFromIdx
           return (
             <div
               key={section.id}
@@ -33,9 +49,23 @@ export function SectionPanel() {
                 'section-chip',
                 isEditing ? 'section-chip--editing' : '',
                 isPlaying ? 'section-chip--playing' : '',
+                isDragging ? 'section-chip--dragging' : '',
+                isDragOver ? 'section-chip--drag-over' : '',
               ].join(' ')}
               onClick={() => dispatch({ type: 'SELECT_SECTION', id: section.id })}
+              onMouseEnter={() => { if (dragFromIdx !== null) setDragOverIdx(idx) }}
             >
+              {/* Drag handle */}
+              <span
+                className="section-drag-handle"
+                onMouseDown={e => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setDragFromIdx(idx)
+                  setDragOverIdx(idx)
+                }}
+              >⠿</span>
+
               {/* Name (double-click to rename) */}
               {editingNameId === section.id ? (
                 <input

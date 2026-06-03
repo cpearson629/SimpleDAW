@@ -157,8 +157,8 @@ input:focus, select:focus {
 
 /* ── Track List ────────────────────────────────────────────────────────────── */
 .track-list {
-  width: 300px;
-  min-width: 280px;
+  width: 420px;
+  min-width: 420px;
   background: var(--bg1);
   border-right: 1px solid var(--border);
   display: flex;
@@ -243,14 +243,8 @@ input:focus, select:focus {
 
 /* ── Track Row ─────────────────────────────────────────────────────────────── */
 .track-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
   transition: background 0.1s;
-  min-height: 44px;
 }
 
 .track-row:hover { background: var(--bg2); }
@@ -258,6 +252,38 @@ input:focus, select:focus {
 .track-row--selected {
   background: var(--bg3);
   border-left: 2px solid var(--accent);
+}
+
+.track-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.track-fx-panel {
+  display: flex;
+  gap: 16px;
+  padding: 4px 12px 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fx-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.fx-label input[type='range'] {
+  width: 80px;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .track-type-badge {
@@ -408,6 +434,23 @@ input:focus, select:focus {
 @keyframes section-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74, 158, 255, 0); }
   50% { box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.3); }
+}
+
+.section-drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 0 2px;
+  user-select: none;
+}
+.section-drag-handle:active { cursor: grabbing; }
+
+.section-chip--dragging {
+  opacity: 0.4;
+}
+
+.section-chip--drag-over {
+  border-left: 2px solid var(--accent);
 }
 
 .section-chip-name {

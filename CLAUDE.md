@@ -56,6 +56,18 @@ Mounted once at app level. Three effects:
 ### MIDI editor modes
 `MidiTrack.editorMode` is `'pianoroll' | 'stepseq'`. `PianoRoll` shows a 48-key grid (MIDI 36–83) where drag-right creates multi-step notes and click-on-note deletes. `MidiStepSeq` is a single-pitch step sequencer using `MidiTrack.stepSeqPitch`. Both dispatch to `Section.midiNotes`.
 
+### UI component rules
+- **Prefer browser-native APIs over custom implementations.** Before building a manual event-state machine (mousedown/mousemove/mouseenter), check if a native API covers the use case — drag-and-drop (`draggable`/`onDragStart`/`onDragOver`/`onDrop`), resize (`ResizeObserver`), intersection (`IntersectionObserver`), etc. Reserve custom implementations for cases requiring pixel-precise control (e.g. the piano roll note editor).
+- **Read the CSS before adding elements to an existing component.** Layout bugs from mismatched display models (e.g. adding a block-level panel inside a `display:flex` row) are invisible to `tsc` and only surface visually. Check `src/App.css` first.
+- **Test UI changes in the browser before declaring done.** Run `npm run dev` and visually verify the golden path. Type checking does not catch layout, overlap, or click-propagation bugs.
+
+### CSS layout map (key structures in `src/App.css`)
+- `.track-row` — **block** container; owns border-bottom, hover/selected background, border-left accent. Do NOT add `display:flex` back here.
+- `.track-row-main` — **flex row** (align-items:center, gap:8px) inside `.track-row`; the clickable select target; holds badge + name + `.track-controls`.
+- `.track-row--selected` — applies to `.track-row`; covers both main row and any open `.track-fx-panel` below it.
+- `.track-fx-panel` — **block** element below `.track-row-main`; renders reverb/delay sliders. Must stay outside the flex row or it renders inline.
+- Elements inside `.track-controls` that call `e.stopPropagation()` prevent the parent `.track-row-main` onClick from firing — intentional for sliders/buttons, but any new panel or region intended to be non-interactive for selection must also be kept outside `.track-row-main` or explicitly stop propagation.
+
 ### Tone.js v15 specifics
 - `Tone.getTransport()` not `Tone.Transport`
 - `Tone.getDraw()` not `Tone.Draw`
